@@ -1,19 +1,35 @@
 (() => {
     "use strict";
 
-    const STORAGE_KEY = "pdfjs-last-url";
+    const TAB_ID_KEY = "pdfjs-tab-id";
+    const STORAGE_PREFIX = "pdfjs-last-url:";
+
+    function getOrCreateTabId() {
+        let tabId = sessionStorage.getItem(TAB_ID_KEY);
+
+        if (tabId) return tabId;
+
+        tabId = self.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        sessionStorage.setItem(TAB_ID_KEY, tabId);
+
+        return tabId;
+    }
+
+    const storageKey = `${STORAGE_PREFIX}${getOrCreateTabId()}`;
 
     function getCurrentFile() {
         const params = new URLSearchParams(location.search);
         return params.get("file");
     }
 
-    function saveCurrentFile() {
-        const file = getCurrentFile();
-
+    function saveCurrentFile(file = getCurrentFile()) {
         if (!file) return;
 
-        sessionStorage.setItem(STORAGE_KEY, file);
+        try {
+            localStorage.setItem(storageKey, file);
+        } catch {
+            // Ignore storage failures (e.g. private mode restrictions).
+        }
     }
 
     function restoreCurrentFile() {
@@ -24,7 +40,13 @@
             return;
         }
 
-        const remembered = sessionStorage.getItem(STORAGE_KEY);
+        let remembered = null;
+
+        try {
+            remembered = localStorage.getItem(storageKey);
+        } catch {
+            // Ignore storage failures (e.g. private mode restrictions).
+        }
 
         if (!remembered) return;
 
@@ -40,17 +62,11 @@
     let previous = getCurrentFile();
 
     setInterval(() => {
-
         const current = getCurrentFile();
 
         if (current !== previous) {
-
             previous = current;
-
             saveCurrentFile();
-
         }
-
     }, 500);
-
 })();

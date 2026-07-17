@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>PDF.js Viewer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script>
+      const viewerUrl = new URL("./web/viewer.html", location.href);
+      viewerUrl.search = location.search;
+      viewerUrl.hash = location.hash;
+      location.replace(viewerUrl.toString());
+    </script>
+  </head>
+  <body>
+    <p>Redirecting to <a href="./web/viewer.html">viewer</a>…</p>
+  </body>
+</html>

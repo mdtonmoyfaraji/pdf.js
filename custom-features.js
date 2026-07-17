@@ -17,13 +17,24 @@
 
     const storageKey = `${STORAGE_PREFIX}${getOrCreateTabId()}`;
 
-    function getCurrentFile() {
+    function getCurrentFileParam() {
         const params = new URLSearchParams(location.search);
         return params.get("file");
     }
 
-    function saveCurrentFile(file = getCurrentFile()) {
-        if (!file) return;
+    function isRestorableFileUrl(file) {
+        if (!file) return false;
+
+        try {
+            const url = new URL(file, location.href);
+            return url.protocol !== "blob:" && url.protocol !== "data:";
+        } catch {
+            return !file.startsWith("blob:") && !file.startsWith("data:");
+        }
+    }
+
+    function saveCurrentFile(file = getCurrentFileParam()) {
+        if (!isRestorableFileUrl(file)) return;
 
         try {
             localStorage.setItem(storageKey, file);
@@ -32,10 +43,21 @@
         }
     }
 
-    function restoreCurrentFile() {
-        const file = getCurrentFile();
+    function setCurrentFileParam(file) {
+        if (!isRestorableFileUrl(file)) return;
 
-        if (file) {
+        const url = new URL(location.href);
+
+        if (url.searchParams.get("file") === file) return;
+
+        url.searchParams.set("file", file);
+        history.replaceState(history.state, "", url.toString());
+    }
+
+    function restoreCurrentFile() {
+        const file = getCurrentFileParam();
+
+        if (isRestorableFileUrl(file)) {
             saveCurrentFile();
             return;
         }
@@ -48,25 +70,44 @@
             // Ignore storage failures (e.g. private mode restrictions).
         }
 
-        if (!remembered) return;
+        if (!isRestorableFileUrl(remembered)) return;
 
         const url = new URL(location.href);
 
         url.searchParams.set("file", remembered);
-
         location.replace(url.toString());
     }
 
     restoreCurrentFile();
 
-    let previous = getCurrentFile();
+    let previous = getCurrentFileParam();
+
+    function getViewerFile() {
+        return self.PDFViewerApplication?.url ?? null;
+    }
+
+    function syncCurrentFile() {
+        const queryFile = getCurrentFileParam();
+
+        if (isRestorableFileUrl(queryFile)) {
+            if (queryFile !== previous) {
+                previous = queryFile;
+                saveCurrentFile(queryFile);
+            }
+            return;
+        }
+
+        const viewerFile = getViewerFile();
+
+        if (!isRestorableFileUrl(viewerFile)) return;
+        if (viewerFile === previous) return;
+
+        previous = viewerFile;
+        setCurrentFileParam(viewerFile);
+        saveCurrentFile(viewerFile);
+    }
 
     setInterval(() => {
-        const current = getCurrentFile();
-
-        if (current !== previous) {
-            previous = current;
-            saveCurrentFile();
-        }
+        syncCurrentFile();
     }, 500);
 })();
